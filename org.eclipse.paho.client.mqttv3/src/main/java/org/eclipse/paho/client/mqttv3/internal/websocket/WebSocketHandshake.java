@@ -164,7 +164,8 @@ public class WebSocketHandshake {
 
 		String secWebsocketProtocolHeader = (String) headerMap.get(HTTP_HEADER_SEC_WEBSOCKET_PROTOCOL);
 		if (secWebsocketProtocolHeader == null) {
-			throw new IOException("WebSocket Response header: empty sec-websocket-protocol");
+			// the protocol header is optional, also not used anywhere
+			// throw new IOException("WebSocket Response header: empty sec-websocket-protocol");
 		}
 
 		if(!headerMap.containsKey(HTTP_HEADER_SEC_WEBSOCKET_ACCEPT)){

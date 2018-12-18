@@ -24,6 +24,15 @@ public class WebSocketFrame {
 
 	public static final int frameLengthOverhead = 6;
 
+	// @IntDef({OP_CONTINUOUS, OP_TEXT, OP_BINARY, OP_CLOSING, OP_PING, OP_PONG})
+	// @interface Opcode {}
+	static final int OP_CONTINUOUS = 0;
+	static final int OP_TEXT = 1;
+	static final int OP_BINARY = 2;
+	static final int OP_CLOSING = 8;
+	static final int OP_PING = 9;
+	static final int OP_PONG = 10;
+
 	private byte opcode;
 	private boolean fin;
 	private byte payload[];
@@ -129,9 +138,60 @@ public class WebSocketFrame {
 
 	}
 
+	private void parsePayload(InputStream input) throws IOException {
+		byte maskLengthByte = (byte) input.read();
+		boolean masked = ((maskLengthByte & 0x80) != 0);
+		int payloadLength = (byte) (0x7F & maskLengthByte);
+		int byteCount = 0;
+		if (payloadLength == 0X7F) {
+			// 8 Byte Extended payload length
+			byteCount = 8;
+		} else if (payloadLength == 0X7E) {
+			// 2 bytes extended payload length
+			byteCount = 2;
+		}
+
+		// Decode the payload length
+		if (byteCount > 0) {
+			payloadLength = 0;
+		}
+		while (--byteCount >= 0) {
+			maskLengthByte = (byte) input.read();
+			payloadLength |= (maskLengthByte & 0xFF) << (8 * byteCount);
+		}
+
+		// Get the masking key
+		byte maskingKey[] = null;
+		if (masked) {
+			maskingKey = new byte[4];
+			input.read(maskingKey, 0, 4);
+		}
+
+		this.payload = new byte[payloadLength];
+		int offsetIndex = 0;
+		int tempLength = payloadLength;
+		int bytesRead = 0;
+		while (offsetIndex != payloadLength) {
+			bytesRead = input.read(this.payload, offsetIndex, tempLength);
+			offsetIndex += bytesRead;
+			tempLength -= bytesRead;
+		}
+
+		// Demask if needed
+		if (masked) {
+			for (int i = 0; i < this.payload.length; i++) {
+				this.payload[i] ^= maskingKey[i % 4];
+			}
+		}
+	}
+
 	/**
 	 * Takes an input stream and parses it into a Websocket frame.
 	 * 
+	 * Although this somewhat handles the current frame types/opcodes,
+	 * the handling is incomplete. FIN and Continuation frames need to be
+	 * concatenated to fully adhere to the WebSocket protocol.
+	 *
 	 * @param input
 	 *            The incoming {@link InputStream}
 	 * @throws IOException
@@ -140,59 +200,29 @@ public class WebSocketFrame {
 	public WebSocketFrame(InputStream input) throws IOException {
 		byte firstByte = (byte) input.read();
 		setFinAndOpCode(firstByte);
-		if (this.opcode == 2) {
-			byte maskLengthByte = (byte) input.read();
-			boolean masked = ((maskLengthByte & 0x80) != 0);
-			int payloadLength = (byte) (0x7F & maskLengthByte);
-			int byteCount = 0;
-			if (payloadLength == 0X7F) {
-				// 8 Byte Extended payload length
-				byteCount = 8;
-			} else if (payloadLength == 0X7E) {
-				// 2 bytes extended payload length
-				byteCount = 2;
-			}
-
-			// Decode the payload length
-			if (byteCount > 0) {
-				payloadLength = 0;
-			}
-			while (--byteCount >= 0) {
-				maskLengthByte = (byte) input.read();
-				payloadLength |= (maskLengthByte & 0xFF) << (8 * byteCount);
-			}
-
-			// Get the masking key
-			byte maskingKey[] = null;
-			if (masked) {
-				maskingKey = new byte[4];
-				input.read(maskingKey, 0, 4);
-			}
-
-			this.payload = new byte[payloadLength];
-			int offsetIndex = 0;
-			int tempLength = payloadLength;
-			int bytesRead = 0;
-			while (offsetIndex != payloadLength) {
-				bytesRead = input.read(this.payload, offsetIndex, tempLength);
-				offsetIndex += bytesRead;
-				tempLength -= bytesRead;
-			}
-
-			// Demask if needed
-			if (masked) {
-				for (int i = 0; i < this.payload.length; i++) {
-					this.payload[i] ^= maskingKey[i % 4];
-				}
-			}
-			return;
-		} else if (this.opcode == 8) {
-			// Closing connection with server
-			closeFlag = true;
-		} else {
-			throw new IOException("Invalid Frame: Opcode: " + this.opcode);
+		switch (opcode) {
+			case OP_PING:
+				// ignore for now
+				break;
+			case OP_PONG:
+				// ignore for now
+				break;
+			case OP_TEXT:
+				parsePayload(input);
+				break;
+			case OP_BINARY:
+				parsePayload(input);
+				break;
+			case OP_CLOSING:
+				// Closing connection with server
+				closeFlag = true;
+				break;
+			case OP_CONTINUOUS:
+				parsePayload(input);
+				break;
+			default:
+				throw new IOException("Invalid Frame: Opcode: " + this.opcode);
 		}
-
 	}
 
 	/**
