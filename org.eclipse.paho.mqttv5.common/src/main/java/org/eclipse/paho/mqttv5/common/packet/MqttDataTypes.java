@@ -15,7 +15,7 @@ public class MqttDataTypes {
 
 	private static final int TWO_BYTE_INT_MAX = 65535;
 	private static final long FOUR_BYTE_INT_MAX = 4294967295L;
-	private static final int VARIABLE_BYTE_INT_MAX = 268435455;
+	public static final int VARIABLE_BYTE_INT_MAX = 268435455;
 
 	public MqttDataTypes() throws IllegalAccessException {
 		throw new IllegalAccessException("Utility Class");
@@ -71,7 +71,7 @@ public class MqttDataTypes {
 	 *             if an exception occurs whilst reading from the Input Stream
 	 */
 	public static Long readUnsignedFourByteInt(DataInputStream inputStream) throws IOException {
-		byte readBuffer[] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+		byte[] readBuffer = {0, 0, 0, 0, 0, 0, 0, 0};
 		inputStream.readFully(readBuffer, 4, 4);
 		return (((long) readBuffer[0] << 56) + ((long) (readBuffer[1] & 255) << 48)
 				+ ((long) (readBuffer[2] & 255) << 40) + ((long) (readBuffer[3] & 255) << 32)

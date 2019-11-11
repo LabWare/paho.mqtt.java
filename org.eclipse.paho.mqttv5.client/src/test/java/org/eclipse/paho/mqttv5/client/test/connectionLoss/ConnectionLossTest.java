@@ -1,14 +1,14 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2014 IBM Corp.
+ * Copyright (c) 2009, 2019 IBM Corp.
  *
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution. 
  *
  * The Eclipse Public License is available at 
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    https://www.eclipse.org/legal/epl-2.0
  * and the Eclipse Distribution License is available at 
- *   http://www.eclipse.org/org/documents/edl-v10.php.
+ *   https://www.eclipse.org/org/documents/edl-v10.php
  *
  *******************************************************************************/
 
@@ -26,7 +26,7 @@ import org.eclipse.paho.mqttv5.client.MqttAsyncClient;
 import org.eclipse.paho.mqttv5.client.MqttCallback;
 import org.eclipse.paho.mqttv5.client.MqttConnectionOptions;
 import org.eclipse.paho.mqttv5.client.MqttDisconnectResponse;
-import org.eclipse.paho.mqttv5.client.MqttLegacyBlockingClient;
+import org.eclipse.paho.mqttv5.client.MqttClient;
 import org.eclipse.paho.mqttv5.client.persist.MemoryPersistence;
 import org.eclipse.paho.mqttv5.client.test.logging.LoggingUtilities;
 import org.eclipse.paho.mqttv5.client.test.properties.TestProperties;
@@ -111,6 +111,8 @@ public class ConnectionLossTest implements MqttCallback {
 	 */
 	@Test
 	public void testConnectionLossWhilePublishingQos0() throws Exception {
+		String methodName = Utility.getMethodName();
+		LoggingUtilities.banner(log, cclass, methodName);
 		final int keepAlive = 15;
 
 		MqttConnectionOptions options = new MqttConnectionOptions();
@@ -119,7 +121,7 @@ public class ConnectionLossTest implements MqttCallback {
 		options.setPassword(password);
 		options.setKeepAliveInterval(keepAlive);
 
-		MqttLegacyBlockingClient client = new MqttLegacyBlockingClient("tcp://localhost:" + proxy.getLocalPort(), clientId, DATA_STORE);
+		MqttClient client = new MqttClient("tcp://localhost:" + proxy.getLocalPort(), clientId, DATA_STORE);
 		client.setCallback(this);
 		proxy.enableProxy();
 		client.connect(options);
@@ -166,6 +168,8 @@ public class ConnectionLossTest implements MqttCallback {
 	 */
 	@Test
 	public void testConnectionLossWhilePublishingQos1() throws Exception {
+		String methodName = Utility.getMethodName();
+		LoggingUtilities.banner(log, cclass, methodName);
 		final int keepAlive = 15;
 
 		MqttConnectionOptions options = new MqttConnectionOptions();
@@ -174,7 +178,7 @@ public class ConnectionLossTest implements MqttCallback {
 		options.setPassword(password);
 		options.setKeepAliveInterval(keepAlive);
 
-		MqttLegacyBlockingClient client = new MqttLegacyBlockingClient("tcp://localhost:" + proxy.getLocalPort(), clientId, DATA_STORE);
+		MqttClient client = new MqttClient("tcp://localhost:" + proxy.getLocalPort(), clientId, DATA_STORE);
 		client.setCallback(this);
 		proxy.enableProxy();
 		client.connect(options);
@@ -222,6 +226,8 @@ public class ConnectionLossTest implements MqttCallback {
 	 */
 	@Test
 	public void testConnectionLossWhilePublishingQos2() throws Exception {
+		String methodName = Utility.getMethodName();
+		LoggingUtilities.banner(log, cclass, methodName);
 		final int keepAlive = 15;
 
 		MqttConnectionOptions options = new MqttConnectionOptions();
@@ -230,7 +236,7 @@ public class ConnectionLossTest implements MqttCallback {
 		options.setPassword(password);
 		options.setKeepAliveInterval(keepAlive);
 
-		MqttLegacyBlockingClient client = new MqttLegacyBlockingClient("tcp://localhost:" + proxy.getLocalPort(), clientId, DATA_STORE);
+		MqttClient client = new MqttClient("tcp://localhost:" + proxy.getLocalPort(), clientId, DATA_STORE);
 		client.setCallback(this);
 		proxy.enableProxy();
 		client.connect(options);
@@ -277,6 +283,8 @@ public class ConnectionLossTest implements MqttCallback {
 	 */
 	@Test
 	public void testConnectionLossWhilePublishingQos1Async() throws Exception {
+		String methodName = Utility.getMethodName();
+		LoggingUtilities.banner(log, cclass, methodName);
 		final int keepAlive = 15;
 
 		MqttConnectionOptions options = new MqttConnectionOptions();
@@ -339,6 +347,8 @@ public class ConnectionLossTest implements MqttCallback {
 	 */
 	@Test
 	public void testKeepConnectionOpenWhilePublishingQos0() throws Exception {
+		String methodName = Utility.getMethodName();
+		LoggingUtilities.banner(log, cclass, methodName);
 		final int keepAlive = 15;
 
 		MqttConnectionOptions options = new MqttConnectionOptions();
@@ -347,7 +357,7 @@ public class ConnectionLossTest implements MqttCallback {
 		options.setPassword(password);
 		options.setKeepAliveInterval(keepAlive);
 
-		MqttLegacyBlockingClient client = new MqttLegacyBlockingClient("tcp://localhost:" + proxy.getLocalPort(), clientId, DATA_STORE);
+		MqttClient client = new MqttClient("tcp://localhost:" + proxy.getLocalPort(), clientId, DATA_STORE);
 		client.setCallback(this);
 		proxy.enableProxy();
 		client.connect(options);
@@ -384,6 +394,8 @@ public class ConnectionLossTest implements MqttCallback {
 	 */
 	@Test
 	public void testKeepConnectionOpenIdle() throws Exception {
+		String methodName = Utility.getMethodName();
+		LoggingUtilities.banner(log, cclass, methodName);
 		final int keepAlive = 15;
 
 		MqttConnectionOptions options = new MqttConnectionOptions();
@@ -392,7 +404,7 @@ public class ConnectionLossTest implements MqttCallback {
 		options.setPassword(password);
 		options.setKeepAliveInterval(keepAlive);
 
-		MqttLegacyBlockingClient client = new MqttLegacyBlockingClient("tcp://localhost:" + proxy.getLocalPort(), clientId, DATA_STORE);
+		MqttClient client = new MqttClient("tcp://localhost:" + proxy.getLocalPort(), clientId, DATA_STORE);
 		client.setCallback(this);
 		proxy.enableProxy();
 		client.connect(options);

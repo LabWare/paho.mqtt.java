@@ -4,13 +4,13 @@ package org.eclipse.paho.mqttv5.client.internal;
  * Copyright (c) 2009, 2018 IBM Corp.
  *
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  *
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    https://www.eclipse.org/legal/epl-2.0
  * and the Eclipse Distribution License is available at
- *   http://www.eclipse.org/org/documents/edl-v10.php.
+ *   https://www.eclipse.org/org/documents/edl-v10.php
  *
  * Contributors:
  *    Dave Locke - initial API and implementation and/or initial documentation
@@ -23,7 +23,6 @@ import java.util.Enumeration;
 import java.util.Properties;
 import java.util.Vector;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import org.eclipse.paho.mqttv5.client.BufferedMessage;
 import org.eclipse.paho.mqttv5.client.IMqttMessageListener;
@@ -38,7 +37,6 @@ import org.eclipse.paho.mqttv5.client.MqttPingSender;
 import org.eclipse.paho.mqttv5.client.MqttToken;
 import org.eclipse.paho.mqttv5.client.MqttTopic;
 import org.eclipse.paho.mqttv5.client.TimerPingSender;
-import org.eclipse.paho.mqttv5.client.alpha.IMqttAsyncClient;
 import org.eclipse.paho.mqttv5.client.logging.Logger;
 import org.eclipse.paho.mqttv5.client.logging.LoggerFactory;
 import org.eclipse.paho.mqttv5.common.MqttException;
@@ -81,7 +79,7 @@ public class ClientComms {
 	private boolean stoppingComms = false;
 
 	private byte conState = DISCONNECTED;
-	private Object conLock = new Object(); // Used to synchronize connection state
+	private final Object conLock = new Object(); // Used to synchronize connection state
 	private boolean closePending = false;
 	private boolean resting = false;
 	private DisconnectedMessageBuffer disconnectedMessageBuffer;
@@ -93,7 +91,7 @@ public class ClientComms {
 	 * network calls.
 	 *
 	 * @param client
-	 *            The {@link IMqttAsyncClient}
+	 *            The {@link MqttClientInterface}
 	 * @param persistence
 	 *            the {@link MqttClientPersistence} layer.
 	 * @param pingSender
@@ -127,22 +125,6 @@ public class ClientComms {
 
 	CommsReceiver getReceiver() {
 		return receiver;
-	}
-
-	private void shutdownExecutorService() {
-		String methodName = "shutdownExecutorService";
-		executorService.shutdown();
-		try {
-			if (!executorService.awaitTermination(conOptions.getExecutorServiceTimeout(), TimeUnit.SECONDS)) {
-				executorService.shutdownNow();
-				if (!executorService.awaitTermination(conOptions.getExecutorServiceTimeout(), TimeUnit.SECONDS)) {
-					log.fine(CLASS_NAME, methodName, "executorService did not terminate");
-				}
-			}
-		} catch (InterruptedException ie) {
-			executorService.shutdownNow();
-			Thread.currentThread().interrupt();
-		}
 	}
 
 	/**
@@ -279,7 +261,8 @@ public class ClientComms {
 				}
 
 				conState = CLOSED;
-				shutdownExecutorService();
+				// Don't shut down an externally supplied executor service 
+				//shutdownExecutorService();
 				// ShutdownConnection has already cleaned most things
 				clientState.close();
 				clientState = null;
@@ -349,7 +332,7 @@ public class ClientComms {
 				conbg.start();
 			} else {
 				// @TRACE 207=connect failed: not disconnected {0}
-				log.fine(CLASS_NAME, methodName, "207", new Object[] { new Byte(conState) });
+				log.fine(CLASS_NAME, methodName, "207", new Object[] { Byte.valueOf(conState) });
 				if (isClosed() || closePending) {
 					throw new MqttException(MqttClientException.REASON_CODE_CLIENT_CLOSED);
 				} else if (isConnecting()) {
@@ -378,7 +361,7 @@ public class ClientComms {
 		}
 
 		// @TRACE 204=connect failed: rc={0}
-		log.fine(CLASS_NAME, methodName, "204", new Object[] { new Integer(rc) });
+		log.fine(CLASS_NAME, methodName, "204", new Object[] { Integer.valueOf(rc) });
 		throw mex;
 	}
 
@@ -495,7 +478,7 @@ public class ClientComms {
 		// it now. This is done at the end to allow a new connect
 		// to be processed and now throw a currently disconnecting error.
 		// any outstanding tokens and unblock any waiters
-		if (endToken != null & callback != null) {
+		if (endToken != null && callback != null) {
 			callback.asyncOperationComplete(endToken);
 		}
 		if (wasConnected && callback != null) {
@@ -741,10 +724,10 @@ public class ClientComms {
 
 	public Properties getDebug() {
 		Properties props = new Properties();
-		props.put("conState", new Integer(conState));
+		props.put("conState", Integer.valueOf(conState));
 		props.put("serverURI", getClient().getServerURI());
 		props.put("callback", callback);
-		props.put("stoppingComms", new Boolean(stoppingComms));
+		props.put("stoppingComms", Boolean.valueOf(stoppingComms));
 		return props;
 	}
 
@@ -765,7 +748,11 @@ public class ClientComms {
 		}
 
 		void start() {
-			executorService.execute(this);
+			if (executorService == null) {
+				new Thread(this).start();
+			} else {
+				executorService.execute(this);
+			}
 		}
 
 		public void run() {
@@ -780,8 +767,8 @@ public class ClientComms {
 				// This will have been set if disconnect occurred before delivery was
 				// fully processed.
 				MqttDeliveryToken[] toks = tokenStore.getOutstandingDelTokens();
-				for (int i = 0; i < toks.length; i++) {
-					toks[i].internalTok.setException(null);
+				for (MqttDeliveryToken tok : toks) {
+					tok.internalTok.setException(null);
 				}
 
 				// Save the connect token in tokenStore as failure can occur before send
@@ -830,8 +817,12 @@ public class ClientComms {
 		}
 
 		void start() {
-			threadName = "MQTT Disc: " + getClient().getClientId();
-			executorService.execute(this);
+			threadName = "MQTT Disc: "+getClient().getClientId();
+			if (executorService == null) {
+				new Thread(this).start();
+			} else {
+				executorService.execute(this);
+			}
 		}
 
 		public void run() {
@@ -844,10 +835,19 @@ public class ClientComms {
 			clientState.quiesce(quiesceTimeout);
 			try {
 				internalSend(disconnect, token);
-				token.internalTok.waitUntilSent();
-			} catch (MqttException ex) {
-			} finally {
+				// do not wait if the sender process is not running
+				if (sender != null && sender.isRunning()) {
+					token.internalTok.waitUntilSent();
+				}
+			}
+			catch (MqttException ex) {
+			}
+			finally {
 				token.internalTok.markComplete(null, null);
+				if (sender == null || !sender.isRunning()) {
+					// if the sender process is not running 
+					token.internalTok.notifyComplete();
+				}
 				shutdownConnection(token, null, null);
 			}
 		}
@@ -933,7 +933,11 @@ public class ClientComms {
 			log.fine(CLASS_NAME, methodName, "509");
 
 			disconnectedMessageBuffer.setPublishCallback(new ReconnectDisconnectedBufferCallback(methodName));
-			executorService.execute(disconnectedMessageBuffer);
+			if (executorService == null) {
+				new Thread(disconnectedMessageBuffer).start();
+			} else {
+				executorService.execute(disconnectedMessageBuffer);
+			}
 		}
 	}
 

@@ -2,13 +2,13 @@
  * Copyright (c) 2016, 2018 IBM Corp.
  *
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution. 
  *
  * The Eclipse Public License is available at 
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    https://www.eclipse.org/legal/epl-2.0
  * and the Eclipse Distribution License is available at 
- *   http://www.eclipse.org/org/documents/edl-v10.php.
+ *   https://www.eclipse.org/org/documents/edl-v10.php
  *
  *******************************************************************************/
 
@@ -482,10 +482,19 @@ public class OfflineBufferingTest {
 		Assert.assertTrue(recieved);
 		log.info("Message was successfully delivered after connect");
 
-		@SuppressWarnings("unchecked")
-		List<String> postConnectKeys = Collections.list(persistence.keys());
-		log.info("There are now: " + postConnectKeys.size() + " keys in persistence");
-		Assert.assertEquals(0, postConnectKeys.size());
+		int keycount = 0;
+		int count = 0;
+		do {
+			@SuppressWarnings("unchecked")
+			List<String> postConnectKeys = Collections.list(persistence.keys());
+			log.info("There are now: " + postConnectKeys.size() + " keys in persistence");
+			keycount = postConnectKeys.size();
+			if (keycount == 0 || ++count > 10) {
+				break;
+			}
+			Thread.sleep(100);
+		} while (keycount != 0);
+		Assert.assertEquals(0, keycount);
 
 		IMqttToken newClientDisconnectToken = newClient.disconnect();
 		newClientDisconnectToken.waitForCompletion(5000);

@@ -1,14 +1,14 @@
 /*******************************************************************************
- * Copyright (c) 2016 IBM Corp.
+ * Copyright (c) 2016, 2019 IBM Corp.
  *
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution. 
  *
  * The Eclipse Public License is available at 
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    https://www.eclipse.org/legal/epl-2.0
  * and the Eclipse Distribution License is available at 
- *   http://www.eclipse.org/org/documents/edl-v10.php.
+ *   https://www.eclipse.org/org/documents/edl-v10.php
  *
  * Contributors:
  * 	  Dave Locke   - Original MQTTv3 implementation
@@ -28,7 +28,7 @@ import org.eclipse.paho.mqttv5.common.MqttException;
 import org.eclipse.paho.mqttv5.common.MqttSubscription;
 import org.eclipse.paho.mqttv5.common.packet.util.CountingInputStream;
 
-public class MqttSubscribe extends MqttWireMessage {
+public class MqttSubscribe extends MqttPersistableWireMessage {
 
 	private static final Byte[] validProperties = { MqttProperties.SUBSCRIPTION_IDENTIFIER,
 			MqttProperties.SUBSCRIPTION_IDENTIFIER_SINGLE,

@@ -2,13 +2,13 @@
  * Copyright (c) 2009, 2018 IBM Corp and others.
  *
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution. 
  *
  * The Eclipse Public License is available at 
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    https://www.eclipse.org/legal/epl-2.0
  * and the Eclipse Distribution License is available at 
- *   http://www.eclipse.org/org/documents/edl-v10.php.
+ *   https://www.eclipse.org/org/documents/edl-v10.php
  *
  * Contributors:
  *    Dave Locke - initial API and implementation and/or initial documentation
@@ -127,15 +127,15 @@ public class ClientState {
 	private int actualInFlight = 0;
 	private int inFlightPubRels = 0;
 	
-	private Object queueLock = new Object();
-	private Object quiesceLock = new Object();
+	private final Object queueLock = new Object();
+	private final Object quiesceLock = new Object();
 	private boolean quiescing = false;
 	
 	private long lastOutboundActivity = 0;
 	private long lastInboundActivity = 0;
 	private long lastPing = 0;
 	private MqttWireMessage pingCommand;
-	private Object pingOutstandingLock = new Object();
+	private final Object pingOutstandingLock = new Object();
 	private int pingOutstanding = 0;
 
 	private boolean connected = false;
@@ -507,7 +507,8 @@ public class ClientState {
 					message.setMessageId(getNextMessageId());
 				}
 		}
-		if (token != null ) {
+		if (token != null) {
+			message.setToken(token);
 			try {
 				token.internalTok.setMessageID(message.getMessageId());
 			} catch (Exception e) {
@@ -531,13 +532,14 @@ public class ClientState {
 					case 2:
 						outboundQoS2.put( Integer.valueOf(message.getMessageId()), message);
 						persistence.put(getSendPersistenceKey(message), (MqttPublish) message);
+						tokenStore.saveToken(token, message);
 						break;
 					case 1:
 						outboundQoS1.put( Integer.valueOf(message.getMessageId()), message);
 						persistence.put(getSendPersistenceKey(message), (MqttPublish) message);
+						tokenStore.saveToken(token, message);
 						break;
 				}
-				tokenStore.saveToken(token, message);
 				pendingMessages.addElement(message);
 				queueLock.notifyAll();
 			}
@@ -831,8 +833,8 @@ public class ClientState {
 				// Handle the case where not connected. This should only be the case if: 
 				// - in the process of disconnecting / shutting down
 				// - in the process of connecting
-				if (!connected && 
-						(pendingFlows.isEmpty() || !((MqttWireMessage)pendingFlows.elementAt(0) instanceof MqttConnect))) {
+				if (pendingFlows == null || (!connected && 
+						(pendingFlows.isEmpty() || !((MqttWireMessage)pendingFlows.elementAt(0) instanceof MqttConnect)))) {
 					//@TRACE 621=no outstanding flows and not connected
 					log.fine(CLASS_NAME,methodName,"621");
 					
@@ -906,8 +908,11 @@ public class ClientState {
 		//@TRACE 625=key={0}
 		log.fine(CLASS_NAME,methodName,"625",new Object[]{message.getKey()});
 		
-		MqttToken token = tokenStore.getToken(message);
-		if (token == null) return;
+		MqttToken token = message.getToken();
+		if (token == null) {
+			token = tokenStore.getToken(message);
+			if (token == null) return;
+		}
 		token.internalTok.notifySent();
         if (message instanceof MqttPingReq) {
             synchronized (pingOutstandingLock) {
