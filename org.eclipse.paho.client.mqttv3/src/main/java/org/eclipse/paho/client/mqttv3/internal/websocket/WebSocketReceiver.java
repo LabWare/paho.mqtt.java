@@ -83,7 +83,7 @@ public class WebSocketReceiver implements Runnable{
 			try {
 				// Wait for the thread to finish
 		        //This must not happen in the synchronized block, otherwise we can deadlock ourselves!
-				receiverThread.join();
+				receiverThread.join(100);
 			} catch (InterruptedException ex) {
 				// Interrupted Exception
 			}
