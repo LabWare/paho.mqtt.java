@@ -784,7 +784,7 @@ public class ClientState {
                 else {
                 		//@TRACE 634=ping not needed yet. Schedule next ping.
                     log.fine(CLASS_NAME, methodName, "634", null);
-                    nextPingTime = Math.max(1,  getKeepAlive() - (time - lastOutboundActivity));
+                    nextPingTime = Math.max(1, TimeUnit.NANOSECONDS.toMillis(keepAlive - (time - lastOutboundActivity)) );
                 }
             }
             //@TRACE 624=Schedule next ping at {0}                                                                                                                                                                                
