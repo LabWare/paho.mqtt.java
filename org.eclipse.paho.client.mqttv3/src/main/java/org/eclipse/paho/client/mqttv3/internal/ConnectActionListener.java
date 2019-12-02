@@ -119,31 +119,22 @@ public class ConnectActionListener implements IMqttActionListener {
     int numberOfURIs = comms.getNetworkModules().length;
     int index = comms.getNetworkModuleIndex();
 
-    if ((index + 1) < numberOfURIs || (originalMqttVersion == MqttConnectOptions.MQTT_VERSION_DEFAULT && options.getMqttVersion() == MqttConnectOptions.MQTT_VERSION_3_1_1)) {
-
-      if (originalMqttVersion == MqttConnectOptions.MQTT_VERSION_DEFAULT) {
-        if (options.getMqttVersion() == MqttConnectOptions.MQTT_VERSION_3_1_1) {
-          options.setMqttVersion(MqttConnectOptions.MQTT_VERSION_3_1);
-        }
-        else {
-          options.setMqttVersion(MqttConnectOptions.MQTT_VERSION_3_1_1);
-          comms.setNetworkModuleIndex(index + 1);
-        }
+    if (originalMqttVersion == MqttConnectOptions.MQTT_VERSION_DEFAULT) {
+      if (options.getMqttVersion() == MqttConnectOptions.MQTT_VERSION_3_1_1) {
+      	options.setMqttVersion(MqttConnectOptions.MQTT_VERSION_3_1);
+      } else {
+      	options.setMqttVersion(MqttConnectOptions.MQTT_VERSION_3_1_1);
       }
-      else {
-        comms.setNetworkModuleIndex(index + 1);
-      }
+    }
+    if ((index + 1) < numberOfURIs) {
+      comms.setNetworkModuleIndex(index + 1);
       try {
-        connect();
-      }
-      catch (MqttPersistenceException e) {
-        onFailure(token, e); // try the next URI in the list
+      	connect();
+      } catch (MqttPersistenceException e) {
+      	onFailure(token, e); // try the next URI in the list
       }
     }
     else {
-      if (originalMqttVersion == MqttConnectOptions.MQTT_VERSION_DEFAULT) {
-    	 options.setMqttVersion(MqttConnectOptions.MQTT_VERSION_DEFAULT);
-      }
       MqttException ex;
       if (exception instanceof MqttException) {
         ex = (MqttException) exception;
