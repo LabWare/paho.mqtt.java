@@ -2,13 +2,13 @@
  * Copyright (c) 2009, 2018 IBM Corp and others.
  *
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution. 
  *
  * The Eclipse Public License is available at 
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    https://www.eclipse.org/legal/epl-2.0
  * and the Eclipse Distribution License is available at 
- *   http://www.eclipse.org/org/documents/edl-v10.php.
+ *   https://www.eclipse.org/org/documents/edl-v10.php
  *
  * Contributors:
  *    Dave Locke - initial API and implementation and/or initial documentation
@@ -33,7 +33,6 @@ import java.util.concurrent.TimeUnit;
 import org.eclipse.paho.mqttv5.client.MqttActionListener;
 import org.eclipse.paho.mqttv5.client.MqttClientException;
 import org.eclipse.paho.mqttv5.client.MqttClientPersistence;
-import org.eclipse.paho.mqttv5.client.MqttDeliveryToken;
 import org.eclipse.paho.mqttv5.client.MqttPingSender;
 import org.eclipse.paho.mqttv5.client.MqttToken;
 import org.eclipse.paho.mqttv5.client.logging.Logger;
@@ -126,15 +125,15 @@ public class ClientState implements MqttState {
 	private int actualInFlight = 0;
 	private int inFlightPubRels = 0;
 
-	private Object queueLock = new Object();
-	private Object quiesceLock = new Object();
+	private final Object queueLock = new Object();
+	private final Object quiesceLock = new Object();
 	private boolean quiescing = false;
 
 	private long lastOutboundActivity = 0;
 	private long lastInboundActivity = 0;
 	private long lastPing = 0;
 	private MqttWireMessage pingCommand;
-	private Object pingOutstandingLock = new Object();
+	private final Object pingOutstandingLock = new Object();
 	private int pingOutstanding = 0;
 
 	private boolean connected = false;
@@ -396,7 +395,7 @@ public class ClientState implements MqttState {
 							outboundQoS1.put(Integer.valueOf(sendMessage.getMessageId()), sendMessage);
 						}
 					}
-					MqttDeliveryToken tok = tokenStore.restoreToken(sendMessage);
+					MqttToken tok = tokenStore.restoreToken(sendMessage);
 					tok.internalTok.setClient(clientComms.getClient());
 					inUseMsgIds.put(Integer.valueOf(sendMessage.getMessageId()),
 							Integer.valueOf(sendMessage.getMessageId()));
@@ -425,7 +424,7 @@ public class ClientState implements MqttState {
 
 					}
 
-					MqttDeliveryToken tok = tokenStore.restoreToken(sendMessage);
+					MqttToken tok = tokenStore.restoreToken(sendMessage);
 					tok.internalTok.setClient(clientComms.getClient());
 					inUseMsgIds.put(Integer.valueOf(sendMessage.getMessageId()),
 							Integer.valueOf(sendMessage.getMessageId()));
@@ -513,8 +512,8 @@ public class ClientState implements MqttState {
 		}
 		// Set Topic Alias if required
 		if (message instanceof MqttPublish && ((MqttPublish) message).getTopicName() != null 
-				&& this.mqttConnection.getOutgoingTopicAliasMaximum() > 0) {
-			String topic = ((MqttPublish) message).getTopicName();
+	        		&& this.mqttConnection != null && this.mqttConnection.getOutgoingTopicAliasMaximum() > 0) {
+                        String topic = ((MqttPublish) message).getTopicName();
 			if (outgoingTopicAliases.containsKey(topic)) {
 				// Existing Topic Alias, Assign it and remove the topic string
 				((MqttPublish) message).getProperties().setTopicAlias(outgoingTopicAliases.get(topic));
@@ -968,7 +967,7 @@ public class ClientState implements MqttState {
 			// @TRACE 626=quiescing={0} actualInFlight={1} pendingFlows={2}
 			// inFlightPubRels={3} callbackQuiesce={4} tokens={5}
 			log.fine(CLASS_NAME, methodName, "626",
-					new Object[] { new Boolean(quiescing), Integer.valueOf(actualInFlight),
+					new Object[] { Boolean.valueOf(quiescing), Integer.valueOf(actualInFlight),
 							Integer.valueOf(pendingFlows.size()), Integer.valueOf(inFlightPubRels),
 							Boolean.valueOf(callback.isQuiesced()), Integer.valueOf(tokC) });
 			synchronized (quiesceLock) {
@@ -1380,7 +1379,7 @@ public class ClientState implements MqttState {
 					tok.internalTok.setException(shutReason);
 				}
 			}
-			if (!(tok instanceof MqttDeliveryToken)) {
+			if (!(tok.internalTok.isDeliveryToken())) {
 				// If not a delivery token it is not valid on
 				// restart so remove
 				tokenStore.removeToken(tok.internalTok.getKey());

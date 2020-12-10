@@ -2,13 +2,13 @@
  * Copyright (c) 2009, 2018 IBM Corp and others.
  *
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution. 
  *
  * The Eclipse Public License is available at 
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    https://www.eclipse.org/legal/epl-2.0
  * and the Eclipse Distribution License is available at 
- *   http://www.eclipse.org/org/documents/edl-v10.php.
+ *   https://www.eclipse.org/org/documents/edl-v10.php
  *
  * Contributors:
  *    Dave Locke - initial API and implementation and/or initial documentation
@@ -119,23 +119,24 @@ public class ClientState {
 	private CommsTokenStore tokenStore;
 	private ClientComms clientComms = null;
 	private CommsCallback callback = null;
-	private long keepAlive;
+	private long keepAliveNanos;					// nanoseconds time
 	private boolean cleanSession;
 	private MqttClientPersistence persistence;
+	private HighResolutionTimer highResolutionTimer;
 	
 	private int maxInflight = 0;	
 	private int actualInFlight = 0;
 	private int inFlightPubRels = 0;
 	
-	private Object queueLock = new Object();
-	private Object quiesceLock = new Object();
+	private final Object queueLock = new Object();
+	private final Object quiesceLock = new Object();
 	private boolean quiescing = false;
 	
-	private long lastOutboundActivity = 0;
-	private long lastInboundActivity = 0;
-	private long lastPing = 0;
+	private long lastOutboundActivity = 0;			// nanoseconds absolute time
+	private long lastInboundActivity = 0;			// nanoseconds absolute time
+	private long lastPing = 0;						// nanoseconds absolute time
 	private MqttWireMessage pingCommand;
-	private Object pingOutstandingLock = new Object();
+	private final Object pingOutstandingLock = new Object();
 	private int pingOutstanding = 0;
 
 	private boolean connected = false;
@@ -148,7 +149,8 @@ public class ClientState {
 	private MqttPingSender pingSender = null;
 
 	protected ClientState(MqttClientPersistence persistence, CommsTokenStore tokenStore, 
-			CommsCallback callback, ClientComms clientComms, MqttPingSender pingSender) throws MqttException {
+			CommsCallback callback, ClientComms clientComms, MqttPingSender pingSender,
+		    HighResolutionTimer highResolutionTimer) throws MqttException {
 		
 		log.setResourceName(clientComms.getClient().getClientId());
 		log.finer(CLASS_NAME, "<Init>", "" );
@@ -168,6 +170,7 @@ public class ClientState {
 		this.tokenStore = tokenStore;
 		this.clientComms = clientComms;
 		this.pingSender = pingSender;
+		this.highResolutionTimer = highResolutionTimer;
 		
 		restoreState();
 	}
@@ -177,14 +180,14 @@ public class ClientState {
         pendingMessages = new Vector(this.maxInflight);
     }
     protected void setKeepAliveSecs(long keepAliveSecs) {
-		this.keepAlive = TimeUnit.SECONDS.toNanos(keepAliveSecs);
+		this.keepAliveNanos = TimeUnit.SECONDS.toNanos(keepAliveSecs);
 	}
     /**
      * Returns the keepAlive in Milliseconds
      * @return The KeepAlive value in Milliseconds
      */
 	protected long getKeepAlive() {
-		return TimeUnit.NANOSECONDS.toMillis(this.keepAlive);
+		return TimeUnit.NANOSECONDS.toMillis(this.keepAliveNanos);
 	}
 	protected void setCleanSession(boolean cleanSession) {
 		this.cleanSession = cleanSession;
@@ -582,8 +585,9 @@ public class ClientState {
 	 * Persists a buffered message to the persistence layer
 	 * 
 	 * @param message The {@link MqttWireMessage} to persist
+	 * @throws MqttException if an exception occurs when no message ids available.
 	 */
-	public void persistBufferedMessage(MqttWireMessage message) {
+	public void persistBufferedMessage(MqttWireMessage message) throws MqttException {
 		final String methodName = "persistBufferedMessage";
 		String key = getSendBufferedPersistenceKey(message);
 		
@@ -603,7 +607,8 @@ public class ClientState {
 			log.fine(CLASS_NAME,methodName, "513", new Object[]{key});
 		} catch (MqttException ex){
 			//@TRACE 514=Failed to persist buffered message key={0}
-			log.warning(CLASS_NAME,methodName, "513", new Object[]{key});
+			log.warning(CLASS_NAME,methodName, "514", new Object[]{key});
+			throw ex;
 		} 
 	}
 	
@@ -682,6 +687,7 @@ public class ClientState {
 			String key =  Integer.toString(messageId);
 			tokenStore.removeToken(key);
 			releaseMessageId(messageId);
+			decrementInFlight();
 		}
 		return result;
 	}
@@ -715,10 +721,10 @@ public class ClientState {
         }
 
 		MqttToken token = null;
-		long nextPingTime = this.keepAlive;
+		long nextPingTime = TimeUnit.NANOSECONDS.toMillis(this.keepAliveNanos);		// milliseconds relative time
 		
-		if (connected && this.keepAlive > 0) {
-			long time = System.nanoTime();
+		if (connected && this.keepAliveNanos > 0) {
+			long time = highResolutionTimer.nanoTime();
 			// Below might not be necessary since move to nanoTime (Issue #278)
 			//Reduce schedule frequency since System.currentTimeMillis is no accurate, add a buffer
 			//It is 1/10 in minimum keepalive unit.
@@ -728,13 +734,13 @@ public class ClientState {
             synchronized (pingOutstandingLock) {
 
                 // Is the broker connection lost because the broker did not reply to my ping?                                                                                                                                 
-                if (pingOutstanding > 0 && (time - lastInboundActivity >= keepAlive + delta)) {
+                if (pingOutstanding > 0 && (time - lastInboundActivity >= keepAliveNanos + delta)) {
                     // lastInboundActivity will be updated once receiving is done.                                                                                                                                        
                     // Add a delta, since the timer and System.currentTimeMillis() is not accurate.     
                 		// TODO - Remove Delta, maybe?
                 	// A ping is outstanding but no packet has been received in KA so connection is deemed broken                                                                                                         
                     //@TRACE 619=Timed out as no activity, keepAlive={0} lastOutboundActivity={1} lastInboundActivity={2} time={3} lastPing={4}                                                                           
-                    log.severe(CLASS_NAME,methodName,"619", new Object[]{ Long.valueOf(this.keepAlive), Long.valueOf(lastOutboundActivity), Long.valueOf(lastInboundActivity),  Long.valueOf(time),  Long.valueOf(lastPing)});
+                    log.severe(CLASS_NAME,methodName,"619", new Object[]{ Long.valueOf(this.keepAliveNanos), Long.valueOf(lastOutboundActivity), Long.valueOf(lastInboundActivity),  Long.valueOf(time),  Long.valueOf(lastPing)});
 
                     // A ping has already been sent. At this point, assume that the                                                                                                                                       
                     // broker has hung and the TCP layer hasn't noticed.                                                                                                                                                  
@@ -742,10 +748,10 @@ public class ClientState {
                 }
 
                 // Is the broker connection lost because I could not get any successful write for 2 keepAlive intervals?                                                                                                      
-                if (pingOutstanding == 0 && (time - lastOutboundActivity >= 2*keepAlive)) {
+                if (pingOutstanding == 0 && (time - lastOutboundActivity >= 2* keepAliveNanos)) {
                     
                     // I am probably blocked on a write operations as I should have been able to write at least a ping message                                                                                                    
-                	log.severe(CLASS_NAME,methodName,"642", new Object[]{ Long.valueOf(this.keepAlive), Long.valueOf(lastOutboundActivity), Long.valueOf(lastInboundActivity),  Long.valueOf(time),  Long.valueOf(lastPing)});
+                	log.severe(CLASS_NAME,methodName,"642", new Object[]{ Long.valueOf(this.keepAliveNanos), Long.valueOf(lastOutboundActivity), Long.valueOf(lastInboundActivity),  Long.valueOf(time),  Long.valueOf(lastPing)});
 
                     // A ping has not been sent but I am not progressing on the current write operation. 
                 	// At this point, assume that the broker has hung and the TCP layer hasn't noticed.                                                                                                                                                  
@@ -761,11 +767,11 @@ public class ClientState {
                 //    This would be the case when receiving a large message;                                                                                                                                                  
                 //    the broker needs to keep receiving a regular ping even if the ping response are queued after the long message                                                                                           
                 //    If lacking to do so, the broker will consider my connection lost and cut my socket.                                                                                                                     
-                if ((pingOutstanding == 0 && (time - lastInboundActivity >= keepAlive - delta)) ||
-                    (time - lastOutboundActivity >= keepAlive - delta)) {
+                if ((pingOutstanding == 0 && (time - lastInboundActivity >= keepAliveNanos - delta)) ||
+                    (time - lastOutboundActivity >= keepAliveNanos - delta)) {
 
                     //@TRACE 620=ping needed. keepAlive={0} lastOutboundActivity={1} lastInboundActivity={2}                                                                                                              
-                    log.fine(CLASS_NAME,methodName,"620", new Object[]{ Long.valueOf(this.keepAlive), Long.valueOf(lastOutboundActivity), Long.valueOf(lastInboundActivity)});
+                    log.fine(CLASS_NAME,methodName,"620", new Object[]{ Long.valueOf(this.keepAliveNanos), Long.valueOf(lastOutboundActivity), Long.valueOf(lastInboundActivity)});
 
                     // pingOutstanding++;  // it will be set after the ping has been written on the wire                                                                                                             
                     // lastPing = time;    // it will be set after the ping has been written on the wire                                                                                                             
@@ -784,7 +790,9 @@ public class ClientState {
                 else {
                 		//@TRACE 634=ping not needed yet. Schedule next ping.
                     log.fine(CLASS_NAME, methodName, "634", null);
-                    nextPingTime = Math.max(1,  getKeepAlive() - (time - lastOutboundActivity));
+                    long elapsedSinceLastActivityNanos = time - lastOutboundActivity;
+                    long elapsedSinceLastActivityMillis = TimeUnit.NANOSECONDS.toMillis( elapsedSinceLastActivityNanos );
+                    nextPingTime = Math.max(1,  getKeepAlive() - elapsedSinceLastActivityMillis);
                 }
             }
             //@TRACE 624=Schedule next ping at {0}                                                                                                                                                                                
@@ -882,14 +890,19 @@ public class ClientState {
 		return result;
 	}
 	
+	/**
+	 * Sets the keep alive interval.
+	 *
+	 * @param interval keep alive interval in milliseconds.
+	 */
 	public void setKeepAliveInterval(long interval) {
-		this.keepAlive = interval;
+		this.keepAliveNanos = TimeUnit.MILLISECONDS.toNanos(interval);
 	}
 	
     public void notifySentBytes(int sentBytesCount) {
         final String methodName = "notifySentBytes";
         if (sentBytesCount > 0) {
-        	this.lastOutboundActivity = System.nanoTime();
+        	this.lastOutboundActivity = highResolutionTimer.nanoTime();
         }
         // @TRACE 643=sent bytes count={0}                                                                                                                                                                                            
         log.fine(CLASS_NAME, methodName, "643", new Object[] {
@@ -904,7 +917,7 @@ public class ClientState {
 	protected void notifySent(MqttWireMessage message) {
 		final String methodName = "notifySent";
 		
-		this.lastOutboundActivity = System.nanoTime();
+		this.lastOutboundActivity = highResolutionTimer.nanoTime();
 		//@TRACE 625=key={0}
 		log.fine(CLASS_NAME,methodName,"625",new Object[]{message.getKey()});
 		
@@ -916,7 +929,7 @@ public class ClientState {
 		token.internalTok.notifySent();
         if (message instanceof MqttPingReq) {
             synchronized (pingOutstandingLock) {
-            	long time = System.nanoTime();
+            	long time = highResolutionTimer.nanoTime();
                 synchronized (pingOutstandingLock) {
                 	lastPing = time;
                 	pingOutstanding++;
@@ -970,7 +983,7 @@ public class ClientState {
     public void notifyReceivedBytes(int receivedBytesCount) {
         final String methodName = "notifyReceivedBytes";
         if (receivedBytesCount > 0) {
-            this.lastInboundActivity = System.nanoTime();
+            this.lastInboundActivity = highResolutionTimer.nanoTime();
         }
         // @TRACE 630=received bytes count={0}                                                                                                                                                                                        
         log.fine(CLASS_NAME, methodName, "630", new Object[] {
@@ -985,7 +998,7 @@ public class ClientState {
 	 */
 	protected void notifyReceivedAck(MqttAck ack) throws MqttException {
 		final String methodName = "notifyReceivedAck";
-		this.lastInboundActivity = System.nanoTime();
+		this.lastInboundActivity = highResolutionTimer.nanoTime();
 
 		// @TRACE 627=received key={0} message={1}
 		log.fine(CLASS_NAME, methodName, "627", new Object[] {
@@ -1067,7 +1080,7 @@ public class ClientState {
 	 */
 	protected void notifyReceivedMsg(MqttWireMessage message) throws MqttException {
 		final String methodName = "notifyReceivedMsg";
-		this.lastInboundActivity = System.nanoTime();
+		this.lastInboundActivity = highResolutionTimer.nanoTime();
 
 		// @TRACE 651=received key={0} message={1}
 		log.fine(CLASS_NAME, methodName, "651", new Object[] {
@@ -1427,7 +1440,8 @@ public class ClientState {
 		callback = null;
 		clientComms = null;
 		persistence = null;
-		pingCommand = null;	
+		pingCommand = null;
+		highResolutionTimer = null;
 	}
 	
 	public Properties getDebug() {

@@ -2,13 +2,13 @@
  * Copyright (c) 2009, 2019 IBM Corp.
  *
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  *
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    https://www.eclipse.org/legal/epl-2.0
  * and the Eclipse Distribution License is available at
- *   http://www.eclipse.org/org/documents/edl-v10.php.
+ *   https://www.eclipse.org/org/documents/edl-v10.php
  *
  * Contributors:
  *    James Sutton - initial API and implementation and/or initial documentation
@@ -211,7 +211,7 @@ import org.eclipse.paho.mqttv5.common.util.MqttTopicValidator;
  * To understand when the delivery of a message is complete either of the two
  * methods above can be used to either wait on or be notified when the publish
  * completes. An alternative is to use the
- * {@link MqttCallback#deliveryComplete(IMqttDeliveryToken)} method which will
+ * {@link MqttCallback#deliveryComplete(IMqttToken)} method which will
  * also be notified when a message has been delivered to the requested quality
  * of service.
  * </p>
@@ -238,13 +238,13 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 	private static int reconnectDelay = 1000; // Reconnect delay, starts at 1
 												// second
 	private boolean reconnecting = false;
-	private static Object clientLock = new Object(); // Simple lock
+	private static final Object clientLock = new Object(); // Simple lock
 
 	// Variables that exist within the life of an MQTT session
 	private MqttSessionState mqttSession = new MqttSessionState();
 
 	// Variables that exist within the life of an MQTT connection.
-	private MqttConnectionState mqttConnection = new MqttConnectionState(); 
+	private MqttConnectionState mqttConnection; 
 	
 	private ScheduledExecutorService executorService;
 	private MqttPingSender pingSender;
@@ -568,6 +568,8 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 			clientId = "";
 		}
 
+	        mqttConnection = new MqttConnectionState(clientId);
+
 		NetworkModuleService.validateURI(serverURI);
 
 		this.serverURI = serverURI;
@@ -747,8 +749,8 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 		// @TRACE 103=cleanStart={0} connectionTimeout={1} TimekeepAlive={2}
 		// userName={3} password={4} will={5} userContext={6} callback={7}
 		log.fine(CLASS_NAME, methodName, "103",
-				new Object[] { Boolean.valueOf(options.isCleanStart()), new Integer(options.getConnectionTimeout()),
-						new Integer(options.getKeepAliveInterval()), options.getUserName(),
+				new Object[] { Boolean.valueOf(options.isCleanStart()), Integer.valueOf(options.getConnectionTimeout()),
+						Integer.valueOf(options.getKeepAliveInterval()), options.getUserName(),
 						((null == options.getPassword()) ? "[null]" : "[notnull]"),
 						((null == options.getWillMessage()) ? "[null]" : "[notnull]"), userContext, callback });
 		comms.setNetworkModules(createNetworkModules(serverURI, options));
@@ -758,7 +760,7 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 		// succeeds
 		MqttToken userToken = new MqttToken(getClientId());
 		ConnectActionListener connectActionListener = new ConnectActionListener(this, persistence, comms, options,
-				userToken, userContext, callback, reconnecting, mqttSession, mqttConnection);
+				userToken, userContext, callback, reconnecting, mqttSession, this.mqttConnection);
 		userToken.setActionCallback(connectActionListener);
 		userToken.setUserContext(this);
 
@@ -828,7 +830,7 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 			MqttProperties disconnectProperties) throws MqttException {
 		final String methodName = "disconnect";
 		// @TRACE 104=> quiesceTimeout={0} userContext={1} callback={2}
-		log.fine(CLASS_NAME, methodName, "104", new Object[] { new Long(quiesceTimeout), userContext, callback });
+		log.fine(CLASS_NAME, methodName, "104", new Object[] { Long.valueOf(quiesceTimeout), userContext, callback });
 
 		MqttToken token = new MqttToken(getClientId());
 		token.setActionCallback(callback);
@@ -838,11 +840,12 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 
 		try {
 			comms.disconnect(disconnect, quiesceTimeout, token);
+                        Thread.sleep(100);
 		} catch (MqttException ex) {
 			// @TRACE 105=< exception
 			log.fine(CLASS_NAME, methodName, "105", null, ex);
 			throw ex;
-		}
+		} catch (Exception tex) {}
 		// @TRACE 108=<
 		log.fine(CLASS_NAME, methodName, "108");
 
@@ -880,7 +883,17 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 	@Override
 	public void disconnectForcibly(long quiesceTimeout, long disconnectTimeout, int reasonCode,
 			MqttProperties disconnectProperties) throws MqttException {
-		comms.disconnectForcibly(quiesceTimeout, disconnectTimeout, reasonCode, disconnectProperties);
+		final String methodName = "disconnectForcibly";
+		try {
+		        comms.disconnectForcibly(quiesceTimeout, disconnectTimeout, reasonCode, disconnectProperties);
+                        Thread.sleep(100);
+		} catch (MqttException ex) {
+			// @TRACE 105=< exception
+			log.fine(CLASS_NAME, methodName, "105", null, ex);
+			throw ex;
+		} catch (Exception tex) {}
+		// @TRACE 108=<
+		log.fine(CLASS_NAME, methodName, "108");
 	}
 
 	/*
@@ -1116,10 +1129,10 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 			MqttProperties subscriptionProperties) throws MqttException {
 
 		// remove any message handlers for individual topics and validate Topics
-		for (int i = 0; i < subscriptions.length; ++i) {
-			this.comms.removeMessageListener(subscriptions[i].getTopic());
+		for (MqttSubscription subscription : subscriptions) {
+			this.comms.removeMessageListener(subscription.getTopic());
 			// Check if the topic filter is valid before subscribing
-			MqttTopicValidator.validate(subscriptions[i].getTopic(),
+			MqttTopicValidator.validate(subscription.getTopic(),
 					this.mqttConnection.isWildcardSubscriptionsAvailable(),
 					this.mqttConnection.isSharedSubscriptionsAvailable());
 		}
@@ -1152,7 +1165,7 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 		// TODO - Build up MQTT Subscriptions properly here
 
 		MqttSubscribe register = new MqttSubscribe(subscriptions, subscriptionProperties);
-
+                token.setRequestMessage(register);
 		comms.sendNoWait(register, token);
 		// @TRACE 109=<
 		log.fine(CLASS_NAME, methodName, "109");
@@ -1238,8 +1251,8 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 			token = this.subscribeBase(subscriptions, userContext, callback, subscriptionProperties);
 		} catch(Exception e) {
 			// if the subscribe fails, then we have to remove the message handlers
-			for (int i = 0; i < subscriptions.length; ++i) {
-				this.comms.removeMessageListener(subscriptions[i].getTopic());
+			for (MqttSubscription subscription : subscriptions) {
+				this.comms.removeMessageListener(subscription.getTopic());
 			}
 			throw e;
 		}
@@ -1281,14 +1294,14 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 		}
 		
 		// add message handlers to the list for this client
-		for (int i = 0; i < subscriptions.length; ++i) {
-			MqttTopicValidator.validate(subscriptions[i].getTopic(),
+		for (MqttSubscription subscription : subscriptions) {
+			MqttTopicValidator.validate(subscription.getTopic(),
 					this.mqttConnection.isWildcardSubscriptionsAvailable(),
 					this.mqttConnection.isSharedSubscriptionsAvailable());
 			if (messageListener == null) {
-				this.comms.removeMessageListener(subscriptions[i].getTopic());
+				this.comms.removeMessageListener(subscription.getTopic());
 			} else {
-				this.comms.setMessageListener(subId, subscriptions[i].getTopic(), messageListener);
+				this.comms.setMessageListener(subId, subscription.getTopic(), messageListener);
 			}
 		}
 
@@ -1297,8 +1310,8 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 			token = this.subscribeBase(subscriptions, userContext, callback, subscriptionProperties);
 		} catch(Exception e) {
 			// if the subscribe fails, then we have to remove the message handlers
-			for (int i = 0; i < subscriptions.length; ++i) {
-				this.comms.removeMessageListener(subscriptions[i].getTopic());
+			for (MqttSubscription subscription : subscriptions) {
+				this.comms.removeMessageListener(subscription.getTopic());
 			}
 			throw e;
 		}
@@ -1368,17 +1381,17 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 			log.fine(CLASS_NAME, methodName, "107", new Object[] { subs, userContext, callback });
 		}
 
-		for (int i = 0; i < topicFilters.length; i++) {
+		for (String topicFilter : topicFilters) {
 			// Check if the topic filter is valid before unsubscribing
 			// Although we already checked when subscribing, but invalid
 			// topic filter is meanless for unsubscribing, just prohibit it
 			// to reduce unnecessary control packet send to broker.
-			MqttTopicValidator.validate(topicFilters[i], true/* allow wildcards */, this.mqttConnection.isSharedSubscriptionsAvailable());
+			MqttTopicValidator.validate(topicFilter, true/* allow wildcards */, this.mqttConnection.isSharedSubscriptionsAvailable());
 		}
 
 		// remove message handlers from the list for this client
-		for (int i = 0; i < topicFilters.length; ++i) {
-			this.comms.removeMessageListener(topicFilters[i]);
+		for (String topicFilter : topicFilters) {
+			this.comms.removeMessageListener(topicFilter);
 		}
 
 		MqttToken token = new MqttToken(getClientId());
@@ -1387,6 +1400,7 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 		token.internalTok.setTopics(topicFilters);
 
 		MqttUnsubscribe unregister = new MqttUnsubscribe(topicFilters, unsubscribeProperties);
+                token.setRequestMessage(unregister);
 
 		comms.sendNoWait(unregister, token);
 		// @TRACE 110=<
@@ -1434,11 +1448,11 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 	 * (non-Javadoc)
 	 * 
 	 * @see
-	 * org.eclipse.paho.mqttv5.client.IMqttAsyncClient#getPendingDeliveryTokens()
+	 * org.eclipse.paho.mqttv5.client.IMqttAsyncClient#getPendingTokens()
 	 */
 	@Override
-	public IMqttDeliveryToken[] getPendingDeliveryTokens() {
-		return comms.getPendingDeliveryTokens();
+	public IMqttToken[] getPendingTokens() {
+		return comms.getPendingTokens();
 	}
 
 	/*
@@ -1450,7 +1464,7 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 	 * org.eclipse.paho.mqttv5.client.MqttActionListener)
 	 */
 	@Override
-	public IMqttDeliveryToken publish(String topic, byte[] payload, int qos, boolean retained, Object userContext,
+	public IMqttToken publish(String topic, byte[] payload, int qos, boolean retained, Object userContext,
 			MqttActionListener callback) throws MqttException, MqttPersistenceException {
 		MqttMessage message = new MqttMessage(payload);
 		message.setProperties(new MqttProperties());
@@ -1467,7 +1481,7 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 	 * byte[], int, boolean)
 	 */
 	@Override
-	public IMqttDeliveryToken publish(String topic, byte[] payload, int qos, boolean retained)
+	public IMqttToken publish(String topic, byte[] payload, int qos, boolean retained)
 			throws MqttException, MqttPersistenceException {
 		return this.publish(topic, payload, qos, retained, null, null);
 	}
@@ -1480,7 +1494,7 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 	 * org.eclipse.paho.mqttv5.common.MqttMessage)
 	 */
 	@Override
-	public IMqttDeliveryToken publish(String topic, MqttMessage message)
+	public IMqttToken publish(String topic, MqttMessage message)
 			throws MqttException, MqttPersistenceException {
 		return this.publish(topic, message, null, null);
 	}
@@ -1495,7 +1509,7 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 	 * org.eclipse.paho.mqttv5.common.packet.MqttProperties)
 	 */
 	@Override
-	public IMqttDeliveryToken publish(String topic, MqttMessage message, Object userContext,
+	public IMqttToken publish(String topic, MqttMessage message, Object userContext,
 			MqttActionListener callback) throws MqttException, MqttPersistenceException {
 		final String methodName = "publish";
 		// @TRACE 111=< topic={0} message={1}userContext={1} callback={2}
@@ -1504,13 +1518,15 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 		// Checks if a topic is valid when publishing a message.
 		MqttTopicValidator.validate(topic, false/* wildcards NOT allowed */, true);
 
-		MqttDeliveryToken token = new MqttDeliveryToken(getClientId());
+		MqttToken token = new MqttToken(getClientId());
+                token.internalTok.setDeliveryToken(true);
 		token.setActionCallback(callback);
 		token.setUserContext(userContext);
 		token.setMessage(message);
 		token.internalTok.setTopics(new String[] { topic });
 
 		MqttPublish pubMsg = new MqttPublish(topic, message, message.getProperties());
+                token.setRequestMessage(pubMsg);
 		comms.sendNoWait(pubMsg, token);
 
 		// @TRACE 112=<
@@ -1578,7 +1594,7 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 		String methodName = "startReconnectCycle";
 		// @Trace 503=Start reconnect timer for client: {0}, delay: {1}
 		log.fine(CLASS_NAME, methodName, "503",
-				new Object[] { this.mqttSession.getClientId(), new Long(reconnectDelay) });
+				new Object[] { this.mqttSession.getClientId(), Long.valueOf(reconnectDelay) });
 		reconnectTimer = new Timer("MQTT Reconnect: " + this.mqttSession.getClientId());
 		reconnectTimer.schedule(new ReconnectTask(), reconnectDelay);
 	}
@@ -1619,7 +1635,7 @@ public class MqttAsyncClient implements MqttClientInterface, IMqttAsyncClient {
 		public void messageArrived(String topic, MqttMessage message) throws Exception {
 		}
 
-		public void deliveryComplete(IMqttDeliveryToken token) {
+		public void deliveryComplete(IMqttToken token) {
 		}
 
 		public void connectComplete(boolean reconnect, String serverURI) {

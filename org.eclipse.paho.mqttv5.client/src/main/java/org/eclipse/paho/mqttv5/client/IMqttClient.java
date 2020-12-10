@@ -2,13 +2,13 @@
  * Copyright (c) 2009, 2019 IBM Corp.
  *
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution. 
  *
  * The Eclipse Public License is available at 
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    https://www.eclipse.org/legal/epl-2.0
  * and the Eclipse Distribution License is available at 
- *   http://www.eclipse.org/org/documents/edl-v10.php.
+ *   https://www.eclipse.org/org/documents/edl-v10.php
  *
  * Contributors:
  *    James Sutton - MQTT V5 support
@@ -73,7 +73,7 @@ public interface IMqttClient { //extends IMqttAsyncClient {
 	 * @throws MqttException  for non security related problems
 	 * @see #connect(MqttConnectionOptions)
 	 */
-  public void connect() throws MqttSecurityException, MqttException;
+        public void connect() throws MqttSecurityException, MqttException;
 
 	/**
 	 * Connects to an MQTT server using the specified options.
@@ -89,7 +89,7 @@ public interface IMqttClient { //extends IMqttAsyncClient {
 	 * reasons
 	 * @throws MqttException  for non security related problems including communication errors
 	 */
-  public void connect(MqttConnectionOptions options) throws MqttSecurityException, MqttException;
+        public void connect(MqttConnectionOptions options) throws MqttSecurityException, MqttException;
   
 	/**
 	 * Connects to an MQTT server using the specified options.
@@ -106,7 +106,7 @@ public interface IMqttClient { //extends IMqttAsyncClient {
 	 * reasons
 	 * @throws MqttException  for non security related problems including communication errors
 	 */
-public IMqttToken connectWithResult(MqttConnectionOptions options) throws MqttSecurityException, MqttException;
+        public IMqttToken connectWithResult(MqttConnectionOptions options) throws MqttSecurityException, MqttException;
 
 	/**
 	 * Disconnects from the server.
@@ -120,7 +120,7 @@ public IMqttToken connectWithResult(MqttConnectionOptions options) throws MqttSe
 	 *
 	 * @throws MqttException if a problem is encountered while disconnecting
 	 */
-  public void disconnect() throws MqttException;
+        public void disconnect() throws MqttException;
 
 	/**
 	 * Disconnects from the server.
@@ -141,9 +141,9 @@ public IMqttToken connectWithResult(MqttConnectionOptions options) throws MqttSe
 	 * means the client will not quiesce.
 	 * @throws MqttException if a problem is encountered while disconnecting
 	 */
-  public void disconnect(long quiesceTimeout) throws MqttException;
+        public void disconnect(long quiesceTimeout) throws MqttException;
   
-  /**
+        /**
 	 * Disconnects from the server forcibly to reset all the states. Could be useful when disconnect attempt failed.
 	 * <p>
 	 * Because the client is able to establish the TCP/IP connection to a none MQTT server and it will certainly fail to
@@ -153,7 +153,7 @@ public IMqttToken connectWithResult(MqttConnectionOptions options) throws MqttSe
 	 * @throws MqttException if any unexpected error
 	 * @since 0.4.1
 	 */
-	public void disconnectForcibly() throws MqttException;
+        public void disconnectForcibly() throws MqttException;
 	
 	/**
 	 * Disconnects from the server forcibly to reset all the states. Could be useful when disconnect attempt failed.
@@ -165,7 +165,7 @@ public IMqttToken connectWithResult(MqttConnectionOptions options) throws MqttSe
 	 * @throws MqttException if any unexpected error
 	 * @since 0.4.1
 	 */
-	public void disconnectForcibly(long disconnectTimeout) throws MqttException;
+        public void disconnectForcibly(long disconnectTimeout) throws MqttException;
 	
 	/**
 	 * Disconnects from the server forcibly to reset all the states. Could be useful when disconnect attempt failed.
@@ -179,7 +179,7 @@ public IMqttToken connectWithResult(MqttConnectionOptions options) throws MqttSe
 	 * @throws MqttException if any unexpected error
 	 * @since 0.4.1
 	 */
-	public void disconnectForcibly(long quiesceTimeout, long disconnectTimeout) throws MqttException;
+        public void disconnectForcibly(long quiesceTimeout, long disconnectTimeout) throws MqttException;
 
 	/**
 	 * Subscribe to a topic, which may include wildcards.
@@ -194,7 +194,7 @@ public IMqttToken connectWithResult(MqttConnectionOptions options) throws MqttSe
 	 * @return a token
 	 * @throws MqttException if there was an error registering the subscription.
 	 */
-  public IMqttToken subscribe(String topicFilter, int qos) throws MqttException;
+        public IMqttToken subscribe(String topicFilter, int qos) throws MqttException;
 
 	/**
 	 * Subscribes to multiple topics, each of which may include wildcards.
@@ -293,7 +293,7 @@ public IMqttToken connectWithResult(MqttConnectionOptions options) throws MqttSe
 	 * @throws MqttException if there was an error registering the subscription.
 	 * @throws IllegalArgumentException if the two supplied arrays are not the same size.
 	 */
-  public IMqttToken subscribe(String[] topicFilters, int[] qos) throws MqttException;
+        public IMqttToken subscribe(String[] topicFilters, int[] qos) throws MqttException;
   
 	/**
 	 * Subscribes to a one or more topics, which may include wildcards using a QoS of 1.
@@ -306,7 +306,7 @@ public IMqttToken connectWithResult(MqttConnectionOptions options) throws MqttSe
 	 * @return a token
 	 * @throws MqttException if there was an error registering the subscription.
 	 */
-public IMqttToken subscribe(String topicFilter, int qos, IMqttMessageListener messageListener) throws MqttException;
+        public IMqttToken subscribe(String topicFilter, int qos, IMqttMessageListener messageListener) throws MqttException;
 
 	/**
 	 * Subscribes to multiple topics, each of which may include wildcards.
@@ -404,7 +404,7 @@ public IMqttToken subscribe(String topicFilter, int qos, IMqttMessageListener me
 	 * @throws MqttException if there was an error registering the subscription.
 	 * @throws IllegalArgumentException if the two supplied arrays are not the same size.
 	 */
-	public IMqttToken subscribe(String[] topicFilters, int[] qos, IMqttMessageListener[] messageListeners) throws MqttException;
+        public IMqttToken subscribe(String[] topicFilters, int[] qos, IMqttMessageListener[] messageListeners) throws MqttException;
 	
 	/**
 	 * Requests the server unsubscribe the client from a topic.
@@ -414,7 +414,7 @@ public IMqttToken subscribe(String topicFilter, int qos, IMqttMessageListener me
 	 * specified on the subscribe.
 	 * @throws MqttException if there was an error unregistering the subscription.
 	 */
-  public void unsubscribe(String topicFilter) throws MqttException;
+        public void unsubscribe(String topicFilter) throws MqttException;
 
 	/**
 	 * Requests the server unsubscribe the client from one or more topics.
@@ -434,7 +434,7 @@ public IMqttToken subscribe(String topicFilter, int qos, IMqttMessageListener me
 	 * must match one specified on a subscribe
 	 * @throws MqttException if there was an error unregistering the subscription.
 	 */
-  public void unsubscribe(String[] topicFilters) throws MqttException;
+        public void unsubscribe(String[] topicFilters) throws MqttException;
 
 
 	/**
@@ -457,7 +457,7 @@ public IMqttToken subscribe(String topicFilter, int qos, IMqttMessageListener me
 	 * @see MqttMessage#setQos(int)
 	 * @see MqttMessage#setRetained(boolean)
 	 */
-	public void publish(String topic, byte[] payload, int qos, boolean retained) throws MqttException, MqttPersistenceException;
+        public void publish(String topic, byte[] payload, int qos, boolean retained) throws MqttException, MqttPersistenceException;
 
 	/**
 	 * Publishes a message to a topic on the server.
@@ -478,7 +478,7 @@ public IMqttToken subscribe(String topicFilter, int qos, IMqttMessageListener me
 	 * <ul>
 	 * <li>Register a {@link #setCallback(MqttCallback)} callback on the client and the delivery complete
 	 * callback will be notified once a delivery of a message completes
-	 * <li>or call {@link #getPendingDeliveryTokens()} which will return a token for each message that
+	 * <li>or call {@link #getPendingTokens()} which will return a token for each message that
 	 * is in-flight.  The token can be used to wait for delivery to complete.
 	 * </ul>
 	 *
@@ -518,7 +518,7 @@ public IMqttToken subscribe(String topicFilter, int qos, IMqttMessageListener me
 	 * @throws MqttException for other errors encountered while publishing the message.
 	 * For instance client not connected.
 	 */
-	public void publish(String topic, MqttMessage message) throws MqttException, MqttPersistenceException;
+        public void publish(String topic, MqttMessage message) throws MqttException, MqttPersistenceException;
 
 	/**
 	 * Sets the callback listener to use for events that happen asynchronously.
@@ -534,7 +534,7 @@ public IMqttToken subscribe(String topicFilter, int qos, IMqttMessageListener me
 	 * @see MqttCallback
 	 * @param callback the class to callback when for events related to the client
 	 */
-	public void setCallback(MqttCallback callback);
+        public void setCallback(MqttCallback callback);
 
 	/**
 	 * Get a topic object which can be used to publish messages.
@@ -576,14 +576,14 @@ public IMqttToken subscribe(String topicFilter, int qos, IMqttMessageListener me
 	 * @throws IllegalArgumentException if the topic contains a '+' or '#'
 	 * wildcard character.
 	 */
-	public MqttTopic getTopic(String topic);
+        public MqttTopic getTopic(String topic);
 
 	/**
 	 * Determines if this client is currently connected to the server.
 	 *
 	 * @return <code>true</code> if connected, <code>false</code> otherwise.
 	 */
-	public boolean isConnected();
+        public boolean isConnected();
 
 	/**
 	 * Returns the client ID used by this client.
@@ -593,7 +593,7 @@ public IMqttToken subscribe(String topicFilter, int qos, IMqttMessageListener me
 	 *
 	 * @return the client ID used by this client.
 	 */
-	public String getClientId();
+        public String getClientId();
 
 	/**
 	 * Returns the address of the server used by this client, as a URI.
@@ -603,14 +603,14 @@ public IMqttToken subscribe(String topicFilter, int qos, IMqttMessageListener me
 	 * @return the server's address, as a URI String.
 	 * @see MqttAsyncClient#MqttAsyncClient(String, String)
 	 */
-	public String getServerURI();
+        public String getServerURI();
 
 	/**
 	 * Returns the delivery tokens for any outstanding publish operations.
 	 * <p>If a client has been restarted and there are messages that were in the
 	 * process of being delivered when the client stopped this method will
 	 * return a token for each message enabling the delivery to be tracked
-	 * Alternately the {@link MqttCallback#deliveryComplete(IMqttDeliveryToken)}
+	 * Alternately the {@link MqttCallback#deliveryComplete(IMqttToken)}
 	 * callback can be used to track the delivery of outstanding messages.
 	 * </p>
 	 * <p>If a client connects with cleanStart true then there will be no
@@ -619,7 +619,7 @@ public IMqttToken subscribe(String topicFilter, int qos, IMqttMessageListener me
 	 * set to false</P>
 	 * @return zero or more delivery tokens
 	 */
-	public IMqttDeliveryToken[] getPendingDeliveryTokens();
+        public IMqttToken[] getPendingTokens();
 	
 	/**
 	 * If manualAcks is set to true, then on completion of the messageArrived callback
@@ -630,13 +630,13 @@ public IMqttToken subscribe(String topicFilter, int qos, IMqttMessageListener me
 	 * callback method.
 	 * @param manualAcks if set to true, MQTT acknowledgements are not sent.
 	 */
-	public void setManualAcks(boolean manualAcks);
+        public void setManualAcks(boolean manualAcks);
 	
 	/**
 	 * Will attempt to reconnect to the server after the client has lost connection.
 	 * @throws MqttException if an error occurs attempting to reconnect
 	 */
-	public void reconnect() throws MqttException;
+        public void reconnect() throws MqttException;
 
 	/**
 	 * Indicate that the application has completed processing the message with id messageId.
@@ -645,7 +645,7 @@ public IMqttToken subscribe(String topicFilter, int qos, IMqttMessageListener me
 	 * @param qos the MQTT QoS of the message to be acknowledged
 	 * @throws MqttException if there was a problem sending the acknowledgement
 	 */
-	public void messageArrivedComplete(int messageId, int qos) throws MqttException;
+        public void messageArrivedComplete(int messageId, int qos) throws MqttException;
 
 	/**
 	 * Close the client
@@ -653,5 +653,5 @@ public IMqttToken subscribe(String topicFilter, int qos, IMqttMessageListener me
 	 * been closed it cannot be reused. For instance attempts to connect will fail.
 	 * @throws MqttException  if the client is not disconnected.
 	 */
-	public void close() throws MqttException;
+        public void close() throws MqttException;
 }
