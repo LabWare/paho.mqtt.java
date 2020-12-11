@@ -103,11 +103,12 @@ public class WebSocketReceiver implements Runnable{
 				receiving = input.available() > 0;
 				WebSocketFrame incomingFrame = new WebSocketFrame(input);
 				if(!incomingFrame.isCloseFlag()){
-					for(int i = 0; i < incomingFrame.getPayload().length; i++){
-						pipedOutputStream.write(incomingFrame.getPayload()[i]);
+					if (incomingFrame.getPayload() != null) {
+						for(int i = 0; i < incomingFrame.getPayload().length; i++){
+							pipedOutputStream.write(incomingFrame.getPayload()[i]);
+						}	
+						pipedOutputStream.flush();
 					}
-
-					pipedOutputStream.flush();
 				} else {
 					if(!stopping){
 						throw new IOException("Server sent a WebSocket Frame with the Stop OpCode");
