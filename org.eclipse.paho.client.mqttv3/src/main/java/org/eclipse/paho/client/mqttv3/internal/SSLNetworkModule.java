@@ -166,7 +166,7 @@ public class SSLNetworkModule extends TCPNetworkModule {
 			}
 		}
 		// reset timeout to default value
-		socket.setSoTimeout(soTimeout);
+// don't		socket.setSoTimeout(soTimeout);
 	}
 
 	public String getServerURI() {

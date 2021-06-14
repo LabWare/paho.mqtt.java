@@ -109,8 +109,12 @@ public class WebSocketHandshake {
 			pw.print("Upgrade: websocket" + LINE_SEPARATOR);
 			pw.print("Connection: Upgrade" + LINE_SEPARATOR);
 			pw.print("Sec-WebSocket-Key: " + key + LINE_SEPARATOR);
-			pw.print("Sec-WebSocket-Protocol: mqtt" + LINE_SEPARATOR);
+//			pw.print("Sec-WebSocket-Protocol: mqtt" + LINE_SEPARATOR);
 			pw.print("Sec-WebSocket-Version: 13" + LINE_SEPARATOR);
+
+			pw.print("Origin: ");
+			pw.print(srvUri.getScheme().equals("wss") ? "https" : "http");
+			pw.print("://" + host + LINE_SEPARATOR);
 
 			if (customWebSocketHeaders != null) {
 				Set keys = customWebSocketHeaders.keySet();
@@ -151,6 +155,19 @@ public class WebSocketHandshake {
 			line = in.readLine();
 		}
 		Map<String, String> headerMap = getHeaders(responseLines);
+
+		// https://www.w3.org/Protocols/rfc2616/rfc2616-sec6.html
+		// first line is status line
+		// Status-Line = HTTP-Version SP Status-Code SP Reason-Phrase CRLF
+		// HTTP/1.1 504 Gateway Timeout
+		String statusLine = responseLines.get(0);
+		int statusIndex = statusLine.indexOf(' ');
+		int messageIndex = statusLine.indexOf(' ', statusIndex+1);
+		String status = statusLine.substring(statusIndex+1, messageIndex);
+		String message = statusLine.substring(messageIndex+1);
+		if (!status.equals("101")) {
+			throw new IOException("WebSocket Response status " + status + " " + message);
+		}
 
 		String connectionHeader = (String) headerMap.get(HTTP_HEADER_CONNECTION);
 		if (connectionHeader == null || connectionHeader.equalsIgnoreCase(HTTP_HEADER_CONNECTION_VALUE)) {
