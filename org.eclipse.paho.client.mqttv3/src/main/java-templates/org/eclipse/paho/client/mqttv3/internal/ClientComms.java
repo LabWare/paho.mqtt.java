@@ -93,9 +93,11 @@ public class ClientComms {
 	 * @param persistence the {@link MqttClientPersistence} layer.
 	 * @param pingSender the {@link MqttPingSender}
 	 * @param executorService the {@link ExecutorService}
+	 * @param highResolutionTimer the {@link HighResolutionTimer}
 	 * @throws MqttException if an exception occurs whilst communicating with the server
 	 */
-	public ClientComms(IMqttAsyncClient client, MqttClientPersistence persistence, MqttPingSender pingSender, ExecutorService executorService) throws MqttException {
+	public ClientComms(IMqttAsyncClient client, MqttClientPersistence persistence, MqttPingSender pingSender,
+					   ExecutorService executorService, HighResolutionTimer highResolutionTimer) throws MqttException {
 		this.conState = DISCONNECTED;
 		this.client 	= client;
 		this.persistence = persistence;
@@ -105,7 +107,7 @@ public class ClientComms {
 
 		this.tokenStore = new CommsTokenStore(getClient().getClientId());
 		this.callback 	= new CommsCallback(this);
-		this.clientState = new ClientState(persistence, tokenStore, this.callback, this, pingSender);
+		this.clientState = new ClientState(persistence, tokenStore, this.callback, this, pingSender, highResolutionTimer);
 
 		callback.setClientState(clientState);
 		log.setResourceName(getClient().getClientId());
@@ -465,7 +467,7 @@ public class ClientComms {
 			// First the token that was related to the disconnect / shutdown may
 			// not be in the token table - temporarily add it if not
 			if (token != null) {
-				if (tokenStore.getToken(token.internalTok.getKey())==null) {
+				if (!token.isComplete() && tokenStore.getToken(token.internalTok.getKey())==null) {
 					tokenStore.saveToken(token, token.internalTok.getKey());
 				}
 			}
@@ -874,6 +876,7 @@ public class ClientComms {
 			log.fine(CLASS_NAME, methodName, "509", null);
 
 			disconnectedMessageBuffer.setPublishCallback(new ReconnectDisconnectedBufferCallback(methodName));
+                        disconnectedMessageBuffer.setMessageDiscardedCallBack(new MessageDiscardedCallback());
 			if (executorService == null) {
 				new Thread(disconnectedMessageBuffer).start();
 			} else {
@@ -881,6 +884,18 @@ public class ClientComms {
 			}
 		}
 	}
+
+
+	class MessageDiscardedCallback implements IDiscardedBufferMessageCallback {
+
+		@Override
+		public void messageDiscarded(MqttWireMessage message) {
+			if(disconnectedMessageBuffer.isPersistBuffer()) {
+				clientState.unPersistBufferedMessage(message);
+			}
+		}
+	}
+
 	
 	class ReconnectDisconnectedBufferCallback implements IDisconnectedBufferCallback{
 		
